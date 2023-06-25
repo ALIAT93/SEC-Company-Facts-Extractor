@@ -1,6 +1,5 @@
-# SEC Financial Extractor
-
-The SEC Financial Extractor is a user interface form application that allows users to extract financial information from publicly listed companies in the SEC exchange. Users can select companies from a list with a search feature and choose to download the data in either database format (SQL Lite) or Excel format.
+# SEC-Company-Facts-Extractor
+SEC Data Explorer: Extract financial data from SEC for publicly listed companies. Search, select, and download in Excel/DB format. Simplify data analysis and gain insights. Unlock the power of SEC filings with ease.
 
 ## Features
 
@@ -39,3 +38,4 @@ Contributions to the SEC Financial Extractor project are welcome! If you have an
 ## License
 
 This project is licensed under the [ALI ALTAJJAR](LICENSE).
+
