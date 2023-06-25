@@ -1,5 +1,5 @@
-('C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
- 'Extract\\build\\Phase1.SEC.API.Extract.1.0\\Phase1.SEC.API.Extract.1.0.exe',
+('C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 Git '
+ 'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\Phase1.SEC.API.Extract.1.0.exe',
  True,
  False,
  True,
@@ -14,31 +14,37 @@
  None,
  None,
  None,
- 'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
- 'Extract\\build\\Phase1.SEC.API.Extract.1.0\\Phase1.SEC.API.Extract.1.0.pkg',
+ 'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 Git '
+ 'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\Phase1.SEC.API.Extract.1.0.pkg',
  [('PYZ-00.pyz',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\PYZ-00.pyz',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\PYZ-00.pyz',
    'PYZ'),
   ('struct',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\struct.pyc',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\struct.pyc',
    'PYMODULE'),
   ('pyimod01_archive',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod01_archive.pyc',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod01_archive.pyc',
    'PYMODULE'),
   ('pyimod02_importers',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod02_importers.pyc',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod02_importers.pyc',
    'PYMODULE'),
   ('pyimod03_ctypes',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod03_ctypes.pyc',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod03_ctypes.pyc',
    'PYMODULE'),
   ('pyimod04_pywin32',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod04_pywin32.pyc',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git '
+   'Clone\\SEC-Company-Facts-Extractor\\build\\Phase1.SEC.API.Extract.1.0\\localpycs\\pyimod04_pywin32.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
    'C:\\Users\\aat2g\\AppData\\Roaming\\Python\\Python39\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
@@ -65,13 +71,13 @@
    'C:\\Users\\aat2g\\AppData\\Roaming\\Python\\Python39\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth__tkinter.py',
    'PYSOURCE'),
   ('Phase1.SEC.API.Extract.1.0',
-   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\4. Phase 1 - '
-   'Extract\\Phase1.SEC.API.Extract.1.0.py',
+   'C:\\Users\\aat2g\\OneDrive\\Documents\\13. Personal Project\\5. Phase 1 '
+   'Git Clone\\SEC-Company-Facts-Extractor\\Phase1.SEC.API.Extract.1.0.py',
    'PYSOURCE')],
  [],
  False,
  False,
- 1687658385,
+ 1687661147,
  [('run.exe',
    'C:\\Users\\aat2g\\AppData\\Roaming\\Python\\Python39\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')])
