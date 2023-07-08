@@ -3,6 +3,7 @@ import tkinter.messagebox
 import customtkinter
 import sys
 import tkinter as tk
+from CTkListbox import *
 from tkinter import messagebox, filedialog
 import requests
 import json
@@ -17,7 +18,7 @@ customtkinter.set_default_color_theme("green")  # Themes: "blue" (standard), "gr
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
-
+        
         # configure window
         self.title("SEC-Company-Facts-Extractor")
         self.geometry(f"{1100}x{580}")
@@ -30,30 +31,26 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure((2, 0,1), weight=0)
         self.grid_rowconfigure((0, 1, 2,3), weight=1)
 
-        
+        ############### Frames Start ###############
         # Frame to house sidebar
         self.sidebar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, rowspan=8, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(4, weight=1)
-        
         # Frame to house Company Label and Search Features Label
         self.Company_Frame = customtkinter.CTkFrame(self, width=320, corner_radius=0)
         self.Company_Frame.grid(row=0, column=1, rowspan=8, sticky="nsew")
         self.Company_Frame.grid_rowconfigure(2, weight=1)
-             
         #Frame to house TabView showing companies selected
         self.tabview = customtkinter.CTkFrame(self,width=320, corner_radius=0)
         self.tabview.grid(row=0, column=2, rowspan = 8 ,sticky="nsew")   
         self.tabview.grid_rowconfigure(6, weight=1)
-        
         #Frame to house TabView showing companies selected
         self.scrollable_frame_Scrollable = customtkinter.CTkScrollableFrame(self.tabview, width= 320, corner_radius=0)
         self.scrollable_frame_Scrollable.grid(row=6, column=0, columnspan = 2,  rowspan = 3, sticky="nsew") 
-        
         #self debugger frame
         self.debugger_text = customtkinter.CTkTextbox(master = self, width=320, activate_scrollbars= True)
         self.debugger_text.grid(row=0, column=3,rowspan=8,  sticky="nsew")
-        
+        ############### Frames End ###############
         
         
         
@@ -84,17 +81,16 @@ class App(customtkinter.CTk):
         self.company_Label_Group = customtkinter.CTkLabel(self.Company_Frame, text="1. Select Company", font=customtkinter.CTkFont(size=14, weight="bold"))
         self.company_Label_Group.grid(row=0, column=0, columnspan=1, padx=10, pady=10, sticky="nsew")
         #Search Entry 
-        self.search_entry = customtkinter.CTkEntry(self.Company_Frame, placeholder_text= "Search Company")
-        self.search_entry.grid(row=1, column=0,columnspan=1, pady=10, padx=20, sticky="nsew")
+        self.Search_Entry_Company_Letter_Word = customtkinter.CTkEntry(self.Company_Frame, placeholder_text= "Search Company")
+        self.Search_Entry_Company_Letter_Word.grid(row=1, column=0,columnspan=1, pady=10, padx=20, sticky="nsew")
         #Company Selection Frame
-        self.select_company_listbox = tkinter.Listbox(self.Company_Frame, selectmode="extended", exportselection=False, width = 60)
-        self.select_company_listbox.grid(row=2,column=0,columnspan=1, rowspan=999, pady=10, padx=20, sticky="nsew")
+        self.List_Box_Company_Selection = tkinter.Listbox(self.Company_Frame, selectmode="extended", exportselection=False, width = 60)
+        self.List_Box_Company_Selection.grid(row=2,column=0,columnspan=1, rowspan=999, pady=10, padx=20, sticky="nsew")
         self.load_json_data()
         ############### Column 1 Company List box, lavel and search Entry Finish ###############
         
         
-        
-        # Column Lavel User Inptu 
+        # Column Lavel User Input 
         self.Company_label = customtkinter.CTkLabel(self.tabview, text="2. User Input", font=customtkinter.CTkFont(size=14, weight="bold"))
         self.Company_label.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="")
         # Full Name label
@@ -152,15 +148,12 @@ class App(customtkinter.CTk):
         self.appearance_mode_optionemenu.set("Dark")
         self.scaling_optionemenu.set("100%")
         
-        self.select_company_listbox.bind("<<ListboxSelect>>", self.on_select_company)
-        self.search_entry.bind("<KeyRelease>", self.search_company)  
+        self.List_Box_Company_Selection.bind("<<ListboxSelect>>", self.on_select_company)
+        self.Search_Entry_Company_Letter_Word.bind("<KeyRelease>", self.search_company)  
         self.load_user_settings()
 
 
-    def open_input_dialog_event(self):
-        dialog = customtkinter.CTkInputDialog(text="Type in a number:", title="CTkInputDialog")
-        print("CTkInputDialog:", dialog.get_input())
-
+    ################################################################# Start of Button Function
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
 
@@ -170,17 +163,20 @@ class App(customtkinter.CTk):
 
     def sidebar_button_event(self):
         print("sidebar_button click")
-
+        
+    def select_folder_path_button_clicked(self):
+        folder_path = filedialog.askdirectory()
+        self.select_folder_path_var.set(folder_path)
+    ################################################################ End of Button Functions 
+    
     def load_user_settings(self):     
         try:
             name = self.config.get("UserSettings", "Name")
             email = self.config.get("UserSettings", "Email")
             file_path = self.config.get("UserSettings", "FilePath")
-
             self.Full_Name_Entry_var.insert(0, name)
             self.Email_Entry_var.insert(0, email)
             self.select_folder_path_var.set(file_path)
-                
         except (configparser.NoSectionError, configparser.NoOptionError):
                 # Handle case when config file or section is not found
             pass             
@@ -189,76 +185,14 @@ class App(customtkinter.CTk):
         name = self.Full_Name_Entry_var.get()
         email = self.Email_Entry_var.get()
         file_path = self.select_folder_path_var.get()
-
-        self.config["UserSettings"] = {
-            "Name": name,
-            "Email": email,
-            "FilePath": file_path
-        }
-
+        self.config["UserSettings"] = {"Name": name,"Email": email,"FilePath": file_path}
         with open("config.ini", "w") as config_file:
             self.config.write(config_file)
-
-
-    def search_company(self, event):
-        search_text = self.search_entry.get().lower()
-        if search_text:
-            matching_options = []
-            matching_ciks = []
-            matching_tickers = []
-            for index, option in enumerate(self.all_companies):
-                if search_text in option.lower():
-                    matching_options.append(option)
-                    matching_ciks.append(self.all_companies_cik[index])
-                    matching_tickers.append(self.all_companies_ticker[index])
-            self.select_company_listbox.delete(0, tk.END)
-            for option in matching_options:
-                self.select_company_listbox.insert(tk.END, option)
-            self.all_companies = matching_options
-            self.all_companies_cik = matching_ciks
-            self.all_companies_ticker = matching_tickers
-        else:
-            self.select_company_listbox.delete(0, tk.END)
-            for option in self.all_companies:
-                self.select_company_listbox.insert(tk.END, option)
-
-
-
-    def load_json_data(self):
-        def fetch_json_data():
-            url = "https://www.sec.gov/files/company_tickers.json"
-            response = requests.get(url)
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    self.all_companies = [data[key]["title"] for key in data]
-                    self.all_companies_cik = [data[key]["cik_str"] for key in data]
-                    self.all_companies_ticker = [data[key]["ticker"] for key in data]
-                    self.update_company_listbox()
-                    total_companies = len(self.all_companies)
-                    print("Total number of companies found:", total_companies)
-                
-                except json.JSONDecodeError:
-                    self.show_error("Failed to parse JSON data")
-            else:
-                self.show_error("Failed to fetch JSON data")
-
-        threading.Thread(target=fetch_json_data).start()
-
-    def update_company_listbox(self):
-        for option in self.all_companies:
-            self.select_company_listbox.insert(tk.END, option)
-
-    def select_folder_path_button_clicked(self):
-        folder_path = filedialog.askdirectory()
-        self.select_folder_path_var.set(folder_path)
 
     def validate_input(self):
         selected_companies = self.selected_companies_var.get()
         folder_path = self.select_folder_path_var.get()
         download_type = self.file_Format_var.get()
-
-        
         Full_Name_Entry = self.Full_Name_Entry_var.get()
         Email_Entry = self.Email_Entry_var.get()
 
@@ -283,22 +217,111 @@ class App(customtkinter.CTk):
             return False
 
         return True
+    
+    def search_company(self, event):
+            search_text = self.Search_Entry_Company_Letter_Word.get().lower()
+            if search_text:
+                matching_options = []
+                for index, option in enumerate(self.List_of_All_Companies_From_Json_Tickers):
+                    if search_text in option.lower():
+                        matching_options.append(option)
+                self.List_Box_Company_Selection.delete(0, tk.END)
+                for option in matching_options:
+                    self.List_Box_Company_Selection.insert(tk.END, option)
+            else:
+                self.List_Box_Company_Selection.delete(0, tk.END)
+                for option in self.List_of_All_Companies_From_Json_Tickers:
+                    self.List_Box_Company_Selection.insert(tk.END, option)
+
+    # def on_select_company(self, event):
+    #         selected_indices = self.List_Box_Company_Selection.curselection()
+            
+    #         selected_companies = [self.List_Box_Company_Selection.get(index) for index in selected_indices]
+
+    #         cik_str_list = [self.List_of_All_CIKs_From_Json_Tickers[index] for index in selected_indices]
+    #         selected_cik_str = "\n".join(str(cik_str) for cik_str in cik_str_list)
+
+    #         ticker_str_list = [self.List_of_All_Tickers_From_Json_Tickers[index] for index in selected_indices]
+    #         selected_ticker_str = "\n".join(str(ticker_str) for ticker_str in ticker_str_list)
+
+    #         self.selected_companies_var.set("\n".join(selected_companies))
+    #         self.selected_cik_str_var.set(selected_cik_str)
+    #         self.selected_ticker_str_var.set(selected_ticker_str)
 
     def on_select_company(self, event):
-            selected_indices = self.select_company_listbox.curselection()
-            selected_companies = [self.select_company_listbox.get(index) for index in selected_indices]
-
-            cik_str_list = [self.all_companies_cik[index] for index in selected_indices]
-            selected_cik_str = "\n".join(str(cik_str) for cik_str in cik_str_list)
-
-            ticker_str_list = [self.all_companies_ticker[index] for index in selected_indices]
-            selected_ticker_str = "\n".join(str(ticker_str) for ticker_str in ticker_str_list)
-
-            self.selected_companies_var.set("\n".join(selected_companies))
-            self.selected_cik_str_var.set(selected_cik_str)
-            self.selected_ticker_str_var.set(selected_ticker_str)
+        # selected_indices = []
+        # for i in self.List_Box_Company_Selection.curselection():
+        #     company_name = self.List_Box_Company_Selection.get(i)
+        #     print(company_name)
+        #     try:
+        #         index = self.List_of_All_Companies_From_Json_Tickers.index(company_name)
+        #         selected_indices.append(index)
+        #         print(f'Following Index got appended: {selected_indices}')
+        #     except ValueError:
+        #         pass
+        # selected_companies = [self.List_Box_Company_Selection.get(index) for index in selected_indices]
         
-            
+        # cik_str_list = [self.List_of_All_CIKs_From_Json_Tickers[index] for index in selected_indices]
+        # selected_cik_str = "\n".join(str(cik_str) for cik_str in cik_str_list)
+
+        # ticker_str_list = [self.List_of_All_Tickers_From_Json_Tickers[index] for index in selected_indices]
+        # selected_ticker_str = "\n".join(str(ticker_str) for ticker_str in ticker_str_list)
+        # print(f"Selected Companies: {selected_companies}")
+        # self.selected_companies_var.set("\n".join(selected_companies))
+        # self.selected_cik_str_var.set(selected_cik_str)
+        # self.selected_ticker_str_var.set(selected_ticker_str)
+        
+        selected_companies = []
+        cik_str_list = []
+        ticker_str_list = []
+        
+        for i in self.List_Box_Company_Selection.curselection():
+            company_name = self.List_Box_Company_Selection.get(i)
+            print(company_name)
+            if company_name in self.List_of_All_Companies_From_Json_Tickers:
+                index = self.List_of_All_Companies_From_Json_Tickers.index(company_name)
+                selected_companies.append(company_name)
+                cik_str_list.append(self.List_of_All_CIKs_From_Json_Tickers[index])
+                ticker_str_list.append(self.List_of_All_Tickers_From_Json_Tickers[index])
+        
+        selected_cik_str = "\n".join(str(cik_str) for cik_str in cik_str_list)
+        selected_ticker_str = "\n".join(str(ticker_str) for ticker_str in ticker_str_list)
+
+        self.selected_companies_var.set("\n".join(selected_companies))
+        self.selected_cik_str_var.set(selected_cik_str)
+        self.selected_ticker_str_var.set(selected_ticker_str)
+    
+
+
+
+
+    def load_json_data(self):
+        def fetch_json_data():
+            url = "https://www.sec.gov/files/company_tickers.json"
+            response = requests.get(url)
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    self.List_of_All_Companies_From_Json_Tickers = [data[key]["title"] for key in data]
+                    self.List_of_All_CIKs_From_Json_Tickers = [data[key]["cik_str"] for key in data]
+                    self.List_of_All_Tickers_From_Json_Tickers = [data[key]["ticker"] for key in data]
+                    
+                    for option in self.List_of_All_Companies_From_Json_Tickers:
+                        self.List_Box_Company_Selection.insert(tk.END, option)
+                        
+                    total_companies = len(self.List_of_All_Companies_From_Json_Tickers)
+                    print("Total number of companies found:", total_companies)
+                
+                except json.JSONDecodeError:
+                    self.show_error("Failed to parse JSON data")
+            else:
+                self.show_error("Failed to fetch JSON data")
+
+        threading.Thread(target=fetch_json_data).start()
+
+    
+
+                      
     def submit_button_clicked(self):
         if not self.validate_input():
             return
@@ -307,6 +330,7 @@ class App(customtkinter.CTk):
         download_type = self.file_Format_var.get()
         company_CIKS = self.selected_cik_str_var.get()
         company_Name = self.selected_companies_var.get()
+        company_tickers = self.selected_ticker_str_var.get()
         full_name = self.Full_Name_Entry_var.get()
         Email_Entry = self.Email_Entry_var.get()
         user_agent= f'{full_name} {Email_Entry}'
@@ -317,16 +341,12 @@ class App(customtkinter.CTk):
         sys.stdout = StdoutRedirector(self.debugger_text)
         sys.stderr = StderrRedirector(self.debugger_text)
 
-        string_Lavel_User = f'{folder_path}, {company_Name}, {user_agent}'
+        string_Lavel_User = f'{folder_path}, {company_Name}, {company_tickers}, {user_agent}'
         # Perform the API extract and download logic
 
         self.debugger_text.insert(tk.END, "Performing API extract and download...\n")
         self.debugger_text.insert(tk.END, string_Lavel_User + "\n")
     
-        # Reset the form fields
-        self.selected_companies_var.set("")
-        self.selected_cik_str_var.set("")
-        self.selected_ticker_str_var.set("")
 
         cik_list = company_CIKS.split("\n")
         zfilled_cik_list = [cik.strip().zfill(10) for cik in cik_list]
@@ -337,17 +357,18 @@ class App(customtkinter.CTk):
         elif download_type == "Data Base":
             filings2 = Filling_Links(zfilled_cik_list, folder_path, user_agent)
             filings2.get_companyfacts_json_db()
-                  
+            
+         # Reset the form fields
+        self.selected_companies_var.set("")
+        self.selected_cik_str_var.set("")
+        self.selected_ticker_str_var.set("")
+                 
         messagebox.showinfo("Extraction Complete", "API extraction and download complete.")
 
     def show_error(self, message):
         messagebox.showerror("Error", message)
 
-    def run(self):
-        self.window.mainloop()
 
-    def cancel_button_clicked(self):
-        self.cancel_operation = True
 
 class StdoutRedirector:
     def __init__(self, text_widget):
