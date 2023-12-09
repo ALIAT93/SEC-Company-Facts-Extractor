@@ -100,15 +100,15 @@ class Platform(QWidget):
         """
         Initialize the side bar of the platform UI with buttons and a spacer.
         Buttons:
-        - "ML Toggle": Toggles the visibility of specific UI components related to Machine Learning.
+        - "DB Viewer": Toggles the visibility of specific UI components related to Machine Learning.
         Returns:
             None
         """
         
         buttons = [
-            ("ML Toggle", self.Button_FunctiOn_Switch_To_Machine_Learning),
-            ("Phase 2", self.sidebar_button_event),  # Add handler if needed
-            ("Phase 3", self.sidebar_button_event)   # Add handler if needed
+            ("DB Viewer", self.Button_FunctiOn_Switch_To_Machine_Learning),
+            ("Not Used", self.sidebar_button_event),  # Add handler if needed
+            ("Not Used", self.sidebar_button_event)   # Add handler if needed
         ]
         for button_text, button_handler in buttons:
             self.create_button(button_text, self.sideBar_Column_1, button_handler)
@@ -118,7 +118,7 @@ class Platform(QWidget):
 
     def phase2_init_column2(self):
         """
-        Initialize the components in Column 2 for Phase 2 of the platform UI.
+        Initialize the components in Column 2 for Not Used of the platform UI.
 
         This method sets up the user interface elements in Column 2, which includes
         options for selecting a database file, browsing tables, searching for specific
@@ -164,7 +164,7 @@ class Platform(QWidget):
 
     def phase2_init_column3(self):
         """
-        Initialize the components in Column 3 for Phase 2 of the platform UI.
+        Initialize the components in Column 3 for Not Used of the platform UI.
 
         This method sets up the user interface elements in Column 3, which includes
         a chart view and a simulated terminal or output.
