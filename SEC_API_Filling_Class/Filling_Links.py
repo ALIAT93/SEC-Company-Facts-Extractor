@@ -8,8 +8,6 @@ from Database_Connec_Class.DB_Connection import DB_Connection
 import json
 import sqlite3
 import logging
-import xlsxwriter
-import logging
 import numpy as np
 import psutil
 import json
@@ -24,8 +22,6 @@ class Filling_Links:
             self.user_agent = user_agent
             self.logger = logging.getLogger(__name__)
          
-
-
 
     def retrieve_companyfacts_json(self,cik_number):
         """
@@ -63,8 +59,6 @@ class Filling_Links:
             print(f"Error details: {str(e)}")
             return None
 
-
-
     def is_file_open(self,file_path):
         """
         Checks if a file specified by `file_path` is currently open by any process.
@@ -94,8 +88,6 @@ class Filling_Links:
             print(f"An error occurred while checking if file is open: {str(e)}")
             return False
 
-
-
     def sanitize_filename(self, filename):
         """
         Sanitizes the given filename by removing special characters and invalid characters.
@@ -113,10 +105,6 @@ class Filling_Links:
         """
         sanitized_filename = re.sub(r'[<>:"/\\|?*]', '', filename)
         return sanitized_filename
-   
-   
-
-
     
     def format_values_as_usd(self, conn):
         """
@@ -167,8 +155,6 @@ class Filling_Links:
                     c.executemany(f"INSERT INTO {table_name} VALUES ({','.join(['?'] * len(headers))});", rows)
 
         conn.commit()
-
-
 
     def get_companyfacts_json_db(self):
         """
@@ -265,7 +251,6 @@ class Filling_Links:
             print(f"Error: {e}")
             sys.exit(1)
 
-
     def format_values_as_usd_excel(self, file_path):
         """
             Formats the values in the "Val" column of each worksheet in the Excel file as USD currency.
@@ -310,8 +295,6 @@ class Filling_Links:
         # Save the modified workbook
         workbook.save(filename=file_path)
 
-
-
     def get_unique_sheet_name(self, workbook, base_name):
         """
         Generates a unique sheet name based on the provided base name.
@@ -343,8 +326,6 @@ class Filling_Links:
                 break
             counter += 1
         return worksheet_name
-
-
 
     def create_hyperlinks(self,workbook, table_of_contents_worksheet):
         """
@@ -381,8 +362,7 @@ class Filling_Links:
                 table_of_contents_worksheet.write(row_number, 2, b1_value_formula)
                 table_of_contents_worksheet.write(row_number, 0, row_number)
                 row_number += 1
-            
-            
+                      
     def get_companyfacts_json_excel(self):
         """
             Retrieves company facts data in JSON format for each CIK number, generates an Excel workbook,
@@ -421,9 +401,16 @@ class Filling_Links:
                     except (PermissionError, IsADirectoryError):
                         self.logger.warning(f"Unable to delete file. Please close the file before running the script.")
                         continue
+                
+                # Create a new Workbook
+                workbook = load_workbook()
 
-                # Create a new Excel workbook
-                workbook = xlsxwriter.Workbook(output_file_path, {'nan_inf_to_errors': True})
+                # Set option for NaN and infinity values to be treated as errors
+                workbook.nan_inf_to_errors = True
+
+                # Save the workbook to a file
+                workbook.save(output_file_path)
+                
                 # Create a table of contents worksheet
                 table_of_contents_worksheet = workbook.add_worksheet("table_of_contents_worksheet")
                 
@@ -477,8 +464,7 @@ class Filling_Links:
         except Exception as e:
             self.logger.error(f"Error: {e}")
             sys.exit(1)
-        
-        
+             
     def truncate_sheet_name(self, sheet_name):
         """
             Truncates the sheet name to a maximum of 31 characters and removes prohibited characters.

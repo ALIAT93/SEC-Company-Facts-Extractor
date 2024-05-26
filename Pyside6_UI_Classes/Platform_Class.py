@@ -1,21 +1,33 @@
-from PySide6.QtWidgets import  QToolTip, QSplitter, QScrollArea, QWidget, QListWidget, QTableWidgetItem,QTableWidget,QSpacerItem, QProgressBar, QSizePolicy, QAbstractItemView, QSizePolicy, QComboBox, QVBoxLayout, QHBoxLayout, QTabWidget, QTextEdit, QLineEdit, QFileDialog, QLabel, QPushButton, QMessageBox
-from PySide6.QtCharts import QChart, QChartView, QLineSeries,QValueAxis,QDateTimeAxis
-from PySide6.QtCore import Qt, QDateTime, QPointF
-from PySide6.QtGui import QPainter
-from SEC_API_Filling_Class.Filling_Links import Filling_Links, Filling_Links_Intial
-
+from collections import defaultdict
+import datetime
+import logging
+import time
 import sys
-import threading
-import requests
 import json
 import configparser
 import sqlite3
+
+from SEC_API_Filling_Class.Filling_Links import Filling_Links, Filling_Links_Intial
+from PySide6.QtGui import  QFont, QFontMetrics, QPainterPath, QColor ,QGradient, QPen, QLinearGradient, QPainter
+from PySide6.QtCore import Qt, QPointF, QRectF, QRect ,QDateTime
+from PySide6.QtWidgets import (
+    QGraphicsItem, QGraphicsSimpleTextItem, QSplitter, QScrollArea,
+    QWidget, QListWidget, QTableWidgetItem, QTableWidget, QSpacerItem,
+    QProgressBar, QSizePolicy, QAbstractItemView, QSizePolicy, QComboBox,
+    QVBoxLayout, QHBoxLayout, QTabWidget, QTextEdit, QLineEdit, QFileDialog,
+    QLabel, QPushButton, QMessageBox
+)
+from PySide6.QtCharts import (
+    QChart, QChartView, QLineSeries, QValueAxis, QDateTimeAxis, QScatterSeries,
+    QSplineSeries,QAreaSeries
+)
 
 # Create a class for the main platform UI
 class Platform(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
-
+        
+        # Read configuration from file
         self.config = configparser.ConfigParser()
         self.config.read("config.ini")
 
@@ -27,7 +39,8 @@ class Platform(QWidget):
         # Create the terminal widget
         self.terminal_widget = QTextEdit()
         self.terminal_widget.setReadOnly(True)  # Set read-only property
-
+        
+        # Initialize layouts and UI elements
         self.Intialize_all_Layouts()
         self.Intialize_Side_Bar_Column_1()
         self.phase1_init_company_selection()
@@ -47,21 +60,24 @@ class Platform(QWidget):
         self.selectedCompanies_Column_3.addWidget(self.progress_bar)
         self.progress_bar.setVisible(False)  # Initially hidden
         
+         # Connect signals to functions
         self.List_Box_Company_Selection.currentItemChanged.connect(self.on_select_company)
         self.List_Box_Company_Selection.itemSelectionChanged.connect(self.on_select_company)
         self.Search_Entry_Company_Letter_Word.textChanged.connect(self.search_company)
+       
+        # Load user settings and JSON data
         self.load_user_settings()   
         self.load_json_data()
-
-
-        # Create instances of your redirectors
+                
+        # Create instances of  redirectors
         self.stdout_redirector = StdoutRedirector(text_widget=self.terminal_widget, progress_bar=self.progress_bar)
         self.stderr_redirector = StderrRedirector(text_widget=self.terminal_widget, progress_bar=self.progress_bar)
 
         # Redirect sys.stdout and sys.stderr to your redirectors
         sys.stdout = self.stdout_redirector
         sys.stderr = self.stderr_redirector
-
+        
+        self.view_instance = None
         
     def Intialize_all_Layouts(self):
         """
@@ -179,14 +195,14 @@ class Platform(QWidget):
         # Create a splitter to divide the column
         splitter = QSplitter(Qt.Vertical)
 
+        # self.chart_widget = QChartView()
         
-         # Chart View Widget
+        # Chart View Widget
         self.chart_widget = QChartView()
+        self.chart_widget.setMouseTracking(True)
+        
         splitter.addWidget(self.chart_widget)
-        
-        
-        # Simulated Terminal or Output Widget wrapped in a QScrollArea
-        #terminal_widget = QTextEdit()
+
         self.terminal_widget.setReadOnly(True)  # Set read-only property
 
         terminal_scroll_area = QScrollArea()
@@ -197,8 +213,6 @@ class Platform(QWidget):
 
         # Set the size ratio for the splitter
         splitter.setSizes([3 * self.height() // 4, self.height() // 4])
-        
- 
         
         # Add the splitter to Column 3
         self.phase2_graph_Machine_Column_3.addWidget(splitter)
@@ -388,6 +402,14 @@ class Platform(QWidget):
             column_names = [column[1] for column in columns]
             self.table_widget.setColumnCount(len(column_names))
             self.table_widget.setHorizontalHeaderLabels(column_names)
+            
+            # Call the function to alter the table by deleting rows
+            self.alter_table_by_deleting_rows(selected_table, data, column_names,database_path)
+            
+            cursor.execute(f"PRAGMA table_info({selected_table})")
+            columns = cursor.fetchall()
+            cursor.execute(f"SELECT * FROM {selected_table}")
+            data = cursor.fetchall()
 
             # Call the function to populate the table widget
             self.phase2_populate_table_widget(data, columns)
@@ -437,132 +459,381 @@ class Platform(QWidget):
         finally:
             connection.close()
 
-    def Phase_2_Update_Chart_Widget(self, data, column_names, title, unit):
-        """
-        Update the chart with data from the selected table.
-        
-        Parameters:
-        - data (list): The data to be plotted on the chart.
-        - column_names (list): The names of the columns in the data.
-        - title (str): The title of the chart.
-        - unit (str): The unit for the Y-axis values.
+    def alter_table_by_deleting_rows(self, selected_table, data, column_names, database_path):
+        print(f"The path is {database_path}")
+        print(f"The selected table: {selected_table}")
+        rows_to_keep = []
+        val_column, frame_column, start_column, end_column, filed_column, index_column, fp_column = None, None, None, None, None, None, None
 
-        This function creates a line series chart and updates it with the provided data,
-        column names, title, and unit. It also handles date formatting and axis configurations.
-        """
-        chart = QChart()
-        series = QLineSeries()
-
-        end_column = None
-        val_column = None
-
-        for keyword in ["end", "val"]:
+        try:
             for column_name in column_names:
-                if keyword in column_name.lower():
-                    if keyword == "end":
-                        end_column = column_name
-                    elif keyword == "val":
-                        val_column = column_name
-
-        if end_column and val_column:
-            end_index = column_names.index(end_column)
-            val_index = column_names.index(val_column)
-
-            min_val = float("inf")
-            max_val = float("-inf")
-            min_date = None
-            max_date = None
+                if "val" in column_name.lower():
+                    val_column = column_name
+                elif "frame" in column_name.lower():
+                    frame_column = column_name
+                elif "start" in column_name.lower():
+                    start_column = column_name
+                elif "end" in column_name.lower():
+                    end_column = column_name
+                elif "filed" in column_name.lower():
+                    filed_column = column_name                    
+                elif "index" in column_name.lower():
+                    index_column = column_name    
+                elif "fp" in column_name.lower():
+                    fp_column = column_name
             
-            existing_dates = set()  # To track existing dates in the series
+            #balance sheet clean up        
+            if val_column and frame_column and start_column is None and end_column and filed_column and index_column:
+                end_index = column_names.index(end_column)
+                filed_index = column_names.index(filed_column)
+                index_column_index = column_names.index(index_column)
 
-            for row in data:
-                end_date = row[end_index]
-                val = row[val_index]
+                # Create a dictionary to store the latest filed_date for each unique end_value
+                End_Date_Dictionary = defaultdict(lambda: {"index": None, "end_date": None, "filed_date": None})
 
-                if end_date and val:
-                    try:
-                        # Convert end_date to a QDateTime object
-                        end_date_time = QDateTime.fromString(end_date, "yyyy-MM-dd")
-                        print(f"The End Date Time: {end_date_time}")
-                        if isinstance(val, str):
-                            val = float(val.replace("$", "").replace(",", ""))
-                        elif isinstance(val, (int, float)):
-                            val = float(val)
-                       
-                        # Check if the end_date already exists in the series
-                        if end_date_time not in existing_dates:
+
+                # Check if any row has a value in the 'val' column
+                for i in range(0, len(data)):
+                    # Check if End Date is None, file date is none and the value doesn't exist in the dictionary
+                    if data[i][end_index] is not None and data[i][index_column_index] is not None and data[i][filed_index] is not None and data[i][end_index] not in End_Date_Dictionary:
+                        # Add values to the dictionary for the current end_value
+                        End_Date_Dictionary[data[i][end_index]]["index"] = data[i][index_column_index]
+                        End_Date_Dictionary[data[i][end_index]]["end_date"] = data[i][end_index] # You can set it to a default value if needed
+                        End_Date_Dictionary[data[i][end_index]]["filed_date"] = data[i][filed_index]  # You can set it to a default value if needed
+
+                    elif data[i][end_index] in End_Date_Dictionary:
+                        format = "%Y-%m-%d"
+                        End_Date_1 = End_Date_Dictionary[data[i][end_index]]["filed_date"] 
+                        End_Date_1_converted_from_string = datetime.datetime(*(time.strptime(End_Date_1, format)[0:6]))
+                        End_Date_2 = data[i][filed_index] 
+                        End_Date_2_converted_from_string = datetime.datetime(*(time.strptime(End_Date_2, format)[0:6]))                        
                         
-                            # Append the QDateTime object (X-axis) and val (Y-axis)
-                            x_timestamp = end_date_time.toSecsSinceEpoch()
-                           
-                            # Create a QPointF with the tooltip
-                            point = QPointF(x_timestamp, val)
-                            # Append the point to the series
-                            series.append(point)
-                            
-                            
-                            existing_dates.add(end_date_time)  # Add the date to the set
+                        if End_Date_1_converted_from_string < End_Date_2_converted_from_string:
+                            End_Date_Dictionary[data[i][end_index]]["filed_date"] = data[i][filed_index] 
+                            End_Date_Dictionary[data[i][end_index]]["index"] = data[i][index_column_index]
 
-                            # Track the minimum and maximum date
-                            if min_date is None or end_date_time < min_date:
-                                min_date = end_date_time
+                # Index rows to keep based on the stored indices in End_Date_Dictionary
+                for end_value, info in End_Date_Dictionary.items():
+                    if info["index"] is not None:
+                        rows_to_keep.append(info["index"])
 
-                            if max_date is None or end_date_time > max_date:
-                                max_date = end_date_time
+                indices_to_delete = []
+
+                for j, row in enumerate(data):
+                    index_column_value = row[index_column_index]
+                    
+                    if index_column_value not in rows_to_keep:
+                        # Print information before deleting
+                        print(f"Deleting Row {j}")
+                        print(f"Values: {row}")
+                        indices_to_delete.append(j)
+
+                # Delete rows from the table
+                if indices_to_delete:
+                    connection = sqlite3.connect(database_path)
+                    cursor = connection.cursor()
+
+                    for n in reversed(indices_to_delete):
+                        column_name_to_delete = index_column  
+                        column_name_to_delete = f'"{index_column}"'
+                        value_to_delete = data[n][index_column_index]
+                        cursor.execute(f"DELETE FROM {selected_table} WHERE {column_name_to_delete}=?", (value_to_delete,))
                             
-                    except (ValueError, TypeError):
-                        continue
-
-            print(f"Data points in series for {title}:")
-            for point in series.pointsVector():
-                x_value = point.x()
-                y_value = point.y()
-                print(f"X: {x_value}, Y: {y_value}")
+                    connection.commit()
+                    connection.close()
+                    
+            ############## Case 2 ###################
+            #Cash flow and Income Earning formula, in which there is a start and end date condition
+            elif (val_column is not None and
+                    frame_column is not None and
+                    start_column is not None and
+                    fp_column is not None and
+                    end_column is not None and
+                    filed_column is not None and
+                    index_column is not None):
                 
-            print(f"{min_date} {type(min_date)} - {max_date}")
+                end_index = column_names.index(end_column)
+                filed_index = column_names.index(filed_column)
+                index_column_index = column_names.index(index_column)
+                fp_index = column_names.index(fp_column)
+                start_index = column_names.index(start_column)
+
+                # Create a set
+                unique_entries = set()
+               
+                # Check if any row has a value in the 'val' column
+                for i in range(0, len(data)):
+                    # Check if End Date is None, file date is none and the value doesn't exist in the dictionary
+                    end_date_i = data[i][end_index]
+                    start_date_i =data[i][start_index]
+                    filed_date_i = data[i][filed_index] 
+                    fp_value_i =data[i][fp_index]
+                    index_value_i =  data[i][index_column_index]
+                    
+                    current_entry = (index_value_i, start_date_i, end_date_i, fp_value_i, filed_date_i)
+
+                    if (end_date_i is not None
+                        and start_date_i is not None
+                        and filed_date_i is not None
+                        and fp_value_i is not None
+                        and index_value_i is not None):
                         
-            # Create new QDateTimeAxis for the X-axis and set its format
-            x_axis = QDateTimeAxis()
-            x_axis.setFormat("yyyy-MM-dd")
-            x_axis.setTitleText("Date")
+                        # Check if the combination exists in unique_entries
+                        matching_entries = [entry for entry in unique_entries if entry[1:4] == (start_date_i, end_date_i, fp_value_i)]
+                        if not matching_entries:
+                            # If no matching entry, add the current entry to unique_entries
+                            unique_entries.add(current_entry)
+                        else:
+                            # If matching entries exist, compare and update based on filed_date_i
+                            for matching_entry in matching_entries:
+                                format = "%Y-%m-%d"
+                                
+                                End_Date_1 = matching_entry[4]
+                                End_Date_1_converted_from_string = datetime.datetime(*(time.strptime(End_Date_1, format)[0:6]))
+                                End_Date_2 = data[i][filed_index]
+                                End_Date_2_converted_from_string = datetime.datetime(*(time.strptime(End_Date_2, format)[0:6]))
 
-            # Set the X-axis range based on the minimum and maximum date values
-            x_axis.setMin(min_date)
-            x_axis.setMax(max_date)
+                                if End_Date_1_converted_from_string < End_Date_2_converted_from_string:
+                                    # Your logic here, for example:
+                                    # Update the set with the new combination
+                                    unique_entries.remove(matching_entry)
+                                    unique_entries.add(current_entry)
+                    
+                # Index rows to keep based on the stored indices in End_Date_Dictionary
+                rows_to_keep_case_2 = [entry[0] for entry in unique_entries if entry[0] is not None]
+                
+                indices_to_delete = []
 
-            # Add axes to the chart
-            chart.addAxis(x_axis, Qt.AlignBottom)
+                for j, row in enumerate(data):
+                    index_column_value = row[index_column_index]
 
-            # Attach the series to the axes
-            series.attachAxis(x_axis)
-            
-            # Add the series to the chart
-            chart.addSeries(series)
+                    if index_column_value not in rows_to_keep_case_2:
+                        # Print information before deleting
+                        print(f"Deleting Row {j}")
+                        print(f"Values: {row}")
+                        indices_to_delete.append(j)
 
-            # Create new QValueAxis for the y-axis and set its range and label format
+                # Delete rows from the table
+                if indices_to_delete:
+                    connection = sqlite3.connect(database_path)
+                    cursor = connection.cursor()
+
+                    for n in reversed(indices_to_delete):
+                        column_name_to_delete = index_column  
+                        column_name_to_delete = f'"{index_column}"'
+                        value_to_delete = data[n][index_column_index]
+                        cursor.execute(f"DELETE FROM {selected_table} WHERE {column_name_to_delete}=?", (value_to_delete,))
+
+                    connection.commit()
+                    connection.close()
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+                
+  
+  ######## Graph Fuction######       
+        
+    def print_data_points(self, series, title):
+        print(f"Data points in series for {title}:")
+        for point in series.pointsVector():
+            x_value, y_value = point.x(), point.y()
+            print(f"X: {x_value}, Y: {y_value}") 
+
+    def configure_y_axis(self, min_val, max_val, unit):
+        try:
+            # Check if min_val and max_val are equal
+            if min_val == max_val:
+                # Handle the case where both min_val and max_val are zero
+                range_value = 1 if min_val == 0 else max(0.1 * abs(min_val), 1)
+                min_val -= range_value
+                max_val += range_value
+
             y_axis = QValueAxis()
             y_axis.setRange(min_val, max_val)
             y_axis.setLabelFormat("%'0.2f")
             y_axis.setTitleText(unit)
-
-            # Set the tick interval for the Y-axis to control which values are shown
-            y_axis.setTickCount(10)  # 11 intervals to show key values and breakdown
+            y_axis.setTickCount(15)
+ 
+            return y_axis      
+         
+        except Exception as e:
+            logging.error(f"Error in configure_y_axis: {e}")
+    
+    def configure_x_axis(self, min_date, max_date):
         
-            # Add the y-axis to the chart
-            chart.addAxis(y_axis, Qt.AlignLeft)
-            series.attachAxis(y_axis)
+        try:
+            # Check if the X-axis minimum and maximum timestamps are equal
+            if min_date == max_date:
+                # Add an additional value to the max_timestamp to create a range
+                min_date -= 86400  # Subtract 24 hours (86400 seconds)
+                max_date += 86400  # Add 24 hours (86400 seconds)
+                                    
+            min_date, max_date = QDateTime.fromSecsSinceEpoch(min_date), QDateTime.fromSecsSinceEpoch(max_date)
+            x_axis = QDateTimeAxis()
+            x_axis.setFormat("yyyy-MM-dd")
+            x_axis.setTitleText("Date")
+            x_axis.setRange(min_date , max_date)
             
-            # Add the series to the chart
-            chart.addSeries(series)
-            
-            # Apply a theme to the chart
-            chart.setTheme(QChart.ChartThemeDark)
-            chart.setTitle(title)  # Set an empty string as the chart title
-            
-            
-        #self.chart_widget.setChart(chart_view)
-        self.chart_widget.setChart(chart)
+            # Calculate the difference in days
+            days_difference = min_date.daysTo(max_date)
+
+            # Adjust the tick count based on the difference
+            if days_difference <= 10:
+                x_axis.setTickCount(days_difference - 1)
+            else:
+                x_axis.setTickCount(10)
                 
+            return x_axis  # Return x_axis instead of series   
+        
+        except Exception as e:
+            logging.error(f"Error in configure_x_axis: {e}")
+
+
+    def calculate_min_max_values(self, data, end_index, val_index, start_index=None):
+            try:
+                min_val, max_val = float("inf"), float("-inf")
+                min_date, max_date = None, None
+                stored_points_start, stored_points_end = [], []
+                
+                for row in data:
+                    end_date, val = row[end_index], row[val_index]
+                    start_date = row[start_index] if start_index is not None else None
+                    
+                    if end_date and val is not None:
+                        try:
+                            val = float(val.replace("$", "").replace(",", "")) if isinstance(val, str) else float(val)
+
+                            if start_index is not None:
+                                start_date = QDateTime.fromString(start_date, "yyyy-MM-dd")
+                                start_x = start_date.toSecsSinceEpoch()
+                                point_start = QPointF(start_x, val)
+                                stored_points_start.append(point_start)
+
+                                # Track the minimum and maximum start date
+                                min_date = min(min_date, start_x) if min_date else start_x
+                                max_date = max(max_date, start_x) if max_date else start_x
+
+                            end_date_time = QDateTime.fromString(end_date, "yyyy-MM-dd")
+                            end_x = end_date_time.toSecsSinceEpoch()
+                            point_end = QPointF(end_x, val)
+                            stored_points_end.append(point_end)
+
+                            # Track the minimum and maximum end date
+                            min_date = min(min_date, end_x) if min_date else end_x
+                            max_date = max(max_date, end_x) if max_date else end_x
+
+                            min_val, max_val = min(min_val, val), max(max_val, val)
+    
+                        except (ValueError, TypeError) as e:
+                            logging.error(f"Error processing row: {e}")
+                            continue
+
+            except (ValueError, TypeError) as e:
+                logging.error(f"Error in calculate_min_max_values: {e}")
+
+            return min_date, max_date, min_val, max_val, stored_points_start, stored_points_end
+    
+            
+    def Phase_2_Update_Chart_Widget(self, data, column_names, title, unit):
+        try:
+            chart = QChart()
+        
+            end_column = next((col for col in column_names if "end" in col.lower()), None)
+            start_column = next((col for col in column_names if "start" in col.lower()), None)
+            val_column = next((col for col in column_names if "val" in col.lower()), None)
+            
+            if end_column and val_column and start_column is None:
+                series = QScatterSeries() if len(data) == 1 else  QLineSeries() 
+   
+                end_index = column_names.index(end_column)
+                val_index = column_names.index(val_column)
+                min_date, max_date, min_val, max_val, stored_points_start, stored_points_end = self.calculate_min_max_values(data, end_index, val_index)
+                
+                if stored_points_end:
+                        series.append(stored_points_end)   
+                        chart.addSeries(series)   
+                        x_axis = self.configure_x_axis(min_date, max_date)
+                        y_axis = self.configure_y_axis( min_val, max_val, unit)  
+                        self.print_data_points(series, title)
+                        
+              
+            elif end_column and val_column and start_column:
+                
+                end_index, val_index, start_index = column_names.index(end_column), column_names.index(val_column), column_names.index(start_column)
+                min_date, max_date, min_val, max_val, stored_points_start, stored_points_end = self.calculate_min_max_values(data, end_index, val_index, start_index)
+                
+                if stored_points_start and stored_points_end:                        
+                        for start_point, end_point in zip(stored_points_start, stored_points_end):
+                            # Plot the upper line
+                            upper_series = QLineSeries()
+                            upper_series.append(start_point)
+                            upper_series.append(end_point)
+                            chart.addSeries(upper_series)
+                            
+                            # Plot the lower line
+                            lower_series = QLineSeries()
+                            lower_series.append(QPointF(start_point.x(), min_val))
+                            lower_series.append(QPointF(end_point.x(), min_val))
+                            chart.addSeries(lower_series)
+   
+                            area_series = QAreaSeries(upper_series, lower_series)
+                            chart.addSeries(area_series)
+                            
+                        x_axis = self.configure_x_axis(min_date, max_date)
+                        y_axis = self.configure_y_axis(min_val, max_val, unit)
+                                     
+            chart.createDefaultAxes()
+            chart.setAcceptHoverEvents(True)
+            
+            self.configure_chart_axes(chart, x_axis, y_axis)
+            self.set_chart_properties(chart, title)
+            
+            self.chart_widget.setChart(chart)
+            self.chart_widget.setMouseTracking(True)
+     
+            if end_column and val_column and start_column:
+                self.view_instance = View(chart, area_series)
+            else:
+                self.view_instance = View(chart, series) 
+
+        except Exception as e:
+            logging.error(f"Error in Phase_2_Update_Chart_Widget: {e}")        
+
+    def configure_chart_axes(self, chart, x_axis, y_axis):
+        default_x_axis = chart.axisX()
+        default_y_axis = chart.axisY()
+        chart.removeAxis(default_x_axis)
+        chart.removeAxis(default_y_axis)
+        chart.addAxis(x_axis, Qt.AlignBottom)
+        chart.addAxis(y_axis, Qt.AlignLeft)
+        
+    def set_chart_properties(self, chart, title):
+        chart.setTheme(QChart.ChartThemeDark)
+        chart.setTitle(title)
+        chart.setDropShadowEnabled(True)
+        chart.legend().setVisible(False)
+        for series in chart.series():
+            # Set properties for data points in the series
+            series.setPointsVisible(True)
+
+            if isinstance(series, QScatterSeries):
+                 series.setMarkerShape(QScatterSeries.MarkerShapeTriangle)  
+
+            # Set the properties for the line connecting the data points (if applicable)
+            if isinstance(series, QLineSeries) or isinstance(series, QSplineSeries):
+                pen = series.pen()
+                pen.setWidth(2)  # Set the width of the line
+                series.setPen(pen)
+                
+            # Set the properties for the line connecting the data points (if applicable)
+            if isinstance(series, QAreaSeries):                
+                series.setColor("green")
+                pen = QPen(0x059605)
+                pen.setWidth(2)
+                series.setPen(pen)
+                
+        
+     ######## Graph Fuction End######                     
     def phase2_populate_table_widget(self, data, columns):
         """
         Populate the table widget with data.
@@ -573,7 +844,7 @@ class Platform(QWidget):
 
         This function sets up the headers of the table widget using the provided column names
         and populates the table with the provided data.
-        """
+        """                      
         # Set headers and populate column names
         column_names = [column[1] for column in columns]
         self.table_widget.setColumnCount(len(column_names))
@@ -608,15 +879,26 @@ class Platform(QWidget):
                 cursor = connection.cursor()
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                 table_names = cursor.fetchall()
-                for table in table_names:
-                    self.list_widget.addItem(table[0])
+                
+                # Filter tables with relevant column headers
+                relevant_tables = []
+                for table_name in table_names:
+                    cursor.execute(f"PRAGMA table_info({table_name[0]})")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    if any(keyword.lower() in columns for keyword in ["val", "start", "end"]):
+                        relevant_tables.append(table_name[0])
+
+                # Populate list widget with relevant table names
+                for table in relevant_tables:
+                    self.list_widget.addItem(table)
+        
             except sqlite3.Error as e:
                 print("Error:", e)
             finally:
                 connection.close()  
         else:
             self.show_error("Please select a compatible database file.")
-        
+          
     def load_user_settings(self):
         try:
             name = self.config.get("UserSettings", "Name")
@@ -829,3 +1111,204 @@ class StderrRedirector:
     
 
 
+class Callout(QGraphicsItem):
+    """
+    A QGraphicsItem representing a callout with rounded rectangle and text.
+
+    Parameters:
+        - chart (QChart): The chart to which the callout is associated.
+
+    Methods:
+        - __init__(self, chart): Initializes the Callout instance.
+        - boundingRect(self): Returns the bounding rectangle of the callout.
+        - paint(self, painter, option, widget): Paints the callout on the chart.
+        - mousePressEvent(self, event): Handles mouse press events on the callout.
+        - mouseMoveEvent(self, event): Handles mouse move events on the callout.
+        - set_text(self, text): Sets the text content of the callout.
+        - set_anchor(self, point): Sets the anchor point of the callout.
+        - update_geometry(self): Updates the geometry of the callout.
+
+    Attributes:
+        - _chart (QChart): The associated chart.
+        - _text (str): The text content of the callout.
+        - _textRect (QRectF): The rectangle bounding the text.
+        - _anchor (QPointF): The anchor point of the callout.
+        - _font (QFont): The font used for text.
+        - _rect (QRectF): The overall rectangle of the callout.
+    """
+    def __init__(self, chart):
+        QGraphicsItem.__init__(self, chart)
+        self._chart = chart
+        self._text = ""
+        self._textRect = QRectF()
+        self._anchor = QPointF()
+        self._font = QFont()
+        self._rect = QRectF()
+
+    def boundingRect(self):
+        anchor = self.mapFromParent(self._chart.mapToPosition(self._anchor))
+        rect = QRectF()
+        rect.setLeft(min(self._rect.left(), anchor.x()))
+        rect.setRight(max(self._rect.right(), anchor.x()))
+        rect.setTop(min(self._rect.top(), anchor.y()))
+        rect.setBottom(max(self._rect.bottom(), anchor.y()))
+        return rect
+
+    def paint(self, painter, option, widget):
+        path = QPainterPath()
+        path.addRoundedRect(self._rect, 5, 5)
+        anchor = self.mapFromParent(self._chart.mapToPosition(self._anchor))
+        if not self._rect.contains(anchor) and not self._anchor.isNull():
+            point1 = QPointF()
+            point2 = QPointF()
+
+            above = anchor.y() <= self._rect.top()
+            above_center = (anchor.y() > self._rect.top() and anchor.y() <= self._rect.center().y())
+            below_center = (anchor.y() > self._rect.center().y() and anchor.y() <= self._rect.bottom())
+            below = anchor.y() > self._rect.bottom()
+
+            on_left = anchor.x() <= self._rect.left()
+            left_of_center = (anchor.x() > self._rect.left() and anchor.x() <= self._rect.center().x())
+            right_of_center = (anchor.x() > self._rect.center().x() and anchor.x() <= self._rect.right())
+            on_right = anchor.x() > self._rect.right()
+
+            x = (on_right + right_of_center) * self._rect.width()
+            y = (below + below_center) * self._rect.height()
+            corner_case = ((above and on_left) or (above and on_right) or (below and on_left) or (below and on_right))
+            vertical = abs(anchor.x() - x) > abs(anchor.y() - y)
+
+            x1 = (x + left_of_center * 10 - right_of_center * 20 + corner_case * int(not vertical) * (on_left * 10 - on_right * 20))
+            y1 = (y + above_center * 10 - below_center * 20 + corner_case * vertical * (above * 10 - below * 20))
+            point1.setX(x1)
+            point1.setY(y1)
+
+            x2 = (x + left_of_center * 20 - right_of_center * 10 + corner_case * int(not vertical) * (on_left * 20 - on_right * 10))
+            y2 = (y + above_center * 20 - below_center * 10 + corner_case * vertical * (above * 20 - below * 10))
+            point2.setX(x2)
+            point2.setY(y2)
+
+            path.moveTo(point1)
+            path.lineTo(anchor)
+            path.lineTo(point2)
+            path = path.simplified()
+
+        painter.setBrush(QColor(255, 255, 255))
+        painter.drawPath(path)
+        painter.drawText(self._textRect, self._text)
+
+    def mousePressEvent(self, event):
+        event.setAccepted(True)
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.LeftButton:
+            self.setPos(self._chart.mapToParent(event.pos() - event.buttonDownPos(Qt.LeftButton)))
+            event.setAccepted(True)
+        else:
+            event.setAccepted(False)
+
+    def set_text(self, text):
+        self._text = text
+        metrics = QFontMetrics(self._font)
+        self._textRect = QRectF(metrics.boundingRect(QRect(0.0, 0.0, 150.0, 150.0), Qt.AlignLeft, self._text))
+        self._textRect.translate(5, 5)
+        self.prepareGeometryChange()
+        self._rect = self._textRect.adjusted(-5, -5, 5, 5)
+
+    def set_anchor(self, point):
+        self._anchor = QPointF(point)
+
+    def update_geometry(self):
+        self.prepareGeometryChange()
+        self.setPos(self._chart.mapToPosition(self._anchor) + QPointF(10, -50))
+
+
+class View:
+    """
+    A class representing the view for displaying and interacting with a chart.
+
+    Parameters:
+        - chart (QChart): The chart to be displayed.
+        - Series_1 (QAbstractSeries): The first series to be displayed on the chart.
+        - Series_2 (QAbstractSeries, optional): The second series to be displayed on the chart.
+
+    Methods:
+        - __init__(self, chart, Series_1, Series_2=None): Initializes the View instance.
+        - mouseMoveEvent(self, event): Handles the mouse move event to update displayed coordinates.
+        - keep_callout(self): Keeps the current callout in the list of callouts.
+        - tooltip(self, point, state): Displays a tooltip with X and Y coordinates when a data point is hovered.
+    """
+    def __init__(self, chart, Series_1, Series_2=None):
+        self._chart = chart
+        self._chart.setAcceptHoverEvents(True)
+
+        self._coordX = QGraphicsSimpleTextItem(self._chart)
+        self._coordX.setPos(self._chart.size().width() / 2 - 50, self._chart.size().height())
+        self._coordX.setText("X: ")
+        self._coordY = QGraphicsSimpleTextItem(self._chart)
+        self._coordY.setPos(self._chart.size().width() / 2 + 50, self._chart.size().height())
+        self._coordY.setText("Y: ")
+
+        self._callouts = []
+        self._tooltip = Callout(self._chart)
+
+        Series_1.clicked.connect(self.keep_callout)
+        Series_1.hovered.connect(self.tooltip)
+
+        if Series_2 is not None:
+            Series_2.clicked.connect(self.keep_callout)
+            Series_2.hovered.connect(self.tooltip)
+
+    def mouseMoveEvent(self, event):
+        """
+        Handles the mouse move event to update displayed coordinates.
+
+        Parameters:
+            - event (QGraphicsSceneMouseEvent): The mouse move event.
+        """
+        pos = self._chart.mapToValue(event.position().toPoint())
+        x = pos.x()
+        y = pos.y()
+        self._coordX.setText(f"X: {x:.2f}")
+        self._coordY.setText(f"Y: {y:.2f}")
+
+    def keep_callout(self):
+        """
+        Keeps the current callout in the list of callouts.
+        """
+        self._callouts.append(self._tooltip)
+        self._tooltip = Callout(self._chart)
+
+
+    def tooltip(self, point, state):
+        """
+        Displays a tooltip with X and Y coordinates when a data point is hovered.
+
+        Parameters:
+            - point (QPointF): The data point hovered.
+            - state (bool): The hover state (True if hovered, False otherwise).
+        """
+        if self._tooltip == 0:
+            self._tooltip = Callout(self._chart)
+
+        if state:
+            x = point.x()
+            y = point.y()
+            
+            # Convert timestamp (x) to QDateTime format
+            x_datetime = QDateTime.fromSecsSinceEpoch(int(x))
+            x_formatted = x_datetime.toString("dd/MM/yyyy")
+
+            # Format Y as currency
+            y_formatted = f"${y:,.2f}"
+
+            self._tooltip.set_text(f"X: {x_formatted}\nY: {y_formatted}")
+            
+            self._tooltip.set_anchor(point)
+            self._tooltip.setZValue(11)
+            self._tooltip.update_geometry()
+            self._tooltip.show()
+        else:
+            self._tooltip.hide()
+    
+    
+ 
