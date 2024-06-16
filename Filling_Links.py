@@ -4,7 +4,7 @@ import sys
 import requests
 import pandas as pd
 import time
-from Database_Connec_Class.DB_Connection import DB_Connection
+from DB_Connection import DB_Connection
 import json
 import sqlite3
 import logging

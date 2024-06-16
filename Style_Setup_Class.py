@@ -1,5 +1,5 @@
 import sys
-from Pyside6_UI_Classes.Platform_Class  import Platform
+from Platform_Class  import Platform
 
 # Create a class to manage the main application logic
 class app_Intializer:

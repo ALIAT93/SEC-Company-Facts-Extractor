@@ -6,9 +6,8 @@ import sys
 import json
 import configparser
 import sqlite3
-
-from SEC_API_Filling_Class.Filling_Links import Filling_Links, Filling_Links_Intial
-from PySide6.QtGui import  QFont, QFontMetrics, QPainterPath, QColor ,QGradient, QPen, QLinearGradient, QPainter
+from Filling_Links import Filling_Links, Filling_Links_Intial
+from PySide6.QtGui import  QFont, QFontMetrics, QPainterPath, QColor ,QPen
 from PySide6.QtCore import Qt, QPointF, QRectF, QRect ,QDateTime
 from PySide6.QtWidgets import (
     QGraphicsItem, QGraphicsSimpleTextItem, QSplitter, QScrollArea,

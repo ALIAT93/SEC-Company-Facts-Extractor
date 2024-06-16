@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QMainWindow
-from Pyside6_UI_Classes.Style_Setup_Class import app_Intializer
+from Style_Setup_Class import app_Intializer
+
 # Create a class for the main window
 class MainWindow(QMainWindow):
     def __init__(self, app_instance):
